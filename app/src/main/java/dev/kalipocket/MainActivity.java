@@ -73,9 +73,9 @@ public class MainActivity extends Activity {
     private void desktop(){
         title(content,"Your Kali desktop");note(content,"KeX runs the XFCE graphical session inside NetHunter Rootless.");
         LinearLayout c=card();title(c,"Session controls");note(c,"Set a KeX password in Termux first: nh kex passwd. Start the session, then connect a VNC client to 127.0.0.1:5901.");
-        button(c,"Start desktop",()->session("start"));button(c,"Open VNC viewer",this::openViewer);button(c,"Stop desktop",()->session("stop"));
+        button(c,"Start desktop",()->session("start"));button(c,"Open desktop viewer",this::openViewer);button(c,"Stop desktop",()->session("stop"));
         c=card();title(c,"Terminal");note(c,"Open Termux and enter nh for the Kali shell. Long-running sessions depend on Android keeping Termux alive.");button(c,"Open Termux",this::openTermux);
-        c=card();title(c,"Graphics on this phone");note(c,"Install NetHunter KeX or a compatible VNC viewer. The viewer supplies the graphical display, keyboard and mouse controls. Kali Pocket does not bundle a VNC renderer.");
+        c=card();title(c,"Graphics on this phone");note(c,"The experimental in-app viewer connects to the local KeX desktop. Touch and keyboard support need testing on a phone.");
     }
     private void ai(){
         title(content,"Local intelligence");note(content,"Model: "+setting("model","llama3.2")+" · chat only; no automatic shell execution.");
@@ -142,7 +142,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==70&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startBridge();else if(r==70)alert("Permission needed","Termux requires RUN_COMMAND permission for the bridge installer. Enable it in Android app settings.");}
     private void openTermux(){Intent i=getPackageManager().getLaunchIntentForPackage("com.termux");if(i!=null)startActivity(i);else toast("Install Termux first");}
-    private void openViewer(){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("vnc://127.0.0.1:5901")));}catch(ActivityNotFoundException e){alert("VNC viewer required","Install NetHunter KeX or another VNC viewer. Create a connection to 127.0.0.1, port 5901, using your KeX password.");}}
+    private void openViewer(){startActivity(new Intent(this, DesktopActivity.class));}
     private void url(String value){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(value)));}catch(Exception e){toast("No browser available");}}
     private void copy(String value){((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Kali Pocket",value));toast("Copied to clipboard");}
     private void toast(String message){Toast.makeText(this,message,Toast.LENGTH_LONG).show();}
