@@ -98,6 +98,8 @@ public class MainActivity extends Activity {
         button(c,"Official NetHunter Rootless guide",()->url("https://www.kali.org/docs/nethunter/nethunter-rootless/"));button(c,"Get Termux",()->url("https://f-droid.org/packages/com.termux/"));
         c=card();title(c,"2. Allow app commands");note(c,"In Termux, run the command below. Then return here and grant Kali Pocket permission to run commands.\n\nmkdir -p ~/.termux\necho 'allow-external-apps=true' >> ~/.termux/termux.properties\ntermux-reload-settings");
         button(c,"Copy Termux configuration",()->copy("mkdir -p ~/.termux\necho 'allow-external-apps=true' >> ~/.termux/termux.properties\ntermux-reload-settings"));
+        button(c,"Run official NetHunter installer",this::installNetHunter);
+        note(c,"The official installer runs interactively in Termux; select your image and answer its prompts. After installation, run nh kex passwd there.");
         c=card();title(c,"3. Configure your LLM");note(c,"Use the server’s OpenAI-compatible base URL, including /v1. For Ollama: http://192.168.1.20:11434/v1. The model must already be installed on the server.");
         EditText endpoint=field(c,"LLM base URL",setting("llm","http://192.168.1.20:11434/v1"),false);
         EditText model=field(c,"Model name",setting("model","llama3.2"),false);
@@ -125,6 +127,15 @@ public class MainActivity extends Activity {
     }
     private String read(InputStream input,int max)throws IOException{try(InputStream in=input;ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1){if(out.size()+n>max)throw new IOException("Response too large");out.write(b,0,n);}return out.toString("UTF-8");}}
     private String encoded(String s){return Base64.encodeToString(s.getBytes(StandardCharsets.UTF_8),Base64.NO_WRAP);}
+    private void installNetHunter(){
+        try{getPackageManager().getPackageInfo("com.termux",0);}catch(Exception e){alert("Termux required","Install Termux and enable external app commands as described above.");return;}
+        if(checkSelfPermission("com.termux.permission.RUN_COMMAND")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"com.termux.permission.RUN_COMMAND"},71);return;}
+        String script="set -eu\numask 077\ncommand -v curl >/dev/null || pkg install -y curl\nmkdir -p \"$HOME/.kali-pocket\"\n"+
+            "curl --fail --location --proto '=https' --tlsv1.2 https://offs.ec/2MceZWr -o \"$HOME/.kali-pocket/nethunter-installer\"\n"+
+            "printf '%s  %s\\n' 93932b86c3953483163a6dbcbdf0ff619f3c9204a181f0dffac4f436b546d159 \"$HOME/.kali-pocket/nethunter-installer\" | sha256sum -c -\n"+
+            "exec bash \"$HOME/.kali-pocket/nethunter-installer\"\n";
+        try{Intent i=new Intent("com.termux.RUN_COMMAND");i.setClassName("com.termux","com.termux.app.RunCommandService");i.putExtra("com.termux.RUN_COMMAND_PATH","/data/data/com.termux/files/usr/bin/bash");i.putExtra("com.termux.RUN_COMMAND_ARGUMENTS",new String[]{"-c",script});i.putExtra("com.termux.RUN_COMMAND_WORKDIR","/data/data/com.termux/files/home");i.putExtra("com.termux.RUN_COMMAND_BACKGROUND",false);i.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION","0");startService(i);toast("Installer launched. Follow the prompts in Termux.");}catch(Exception e){alert("Could not launch installer",e.getMessage());}
+    }
     private void startBridge(){
         try{getPackageManager().getPackageInfo("com.termux",0);}catch(Exception e){alert("Termux required","Install Termux from F-Droid, then follow Setup.");return;}
         if(checkSelfPermission("com.termux.permission.RUN_COMMAND")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"com.termux.permission.RUN_COMMAND"},70);return;}
@@ -140,7 +151,7 @@ public class MainActivity extends Activity {
             Intent i=new Intent("com.termux.RUN_COMMAND");i.setClassName("com.termux","com.termux.app.RunCommandService");i.putExtra("com.termux.RUN_COMMAND_PATH","/data/data/com.termux/files/usr/bin/bash");i.putExtra("com.termux.RUN_COMMAND_ARGUMENTS",new String[]{"-c",launch});i.putExtra("com.termux.RUN_COMMAND_WORKDIR","/data/data/com.termux/files/home");i.putExtra("com.termux.RUN_COMMAND_BACKGROUND",false);i.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION","0");startService(i);toast("Bridge command sent. Check the Termux window.");
         }catch(Exception e){alert("Could not launch bridge",e.getMessage()+"\nCheck Termux external-app permission and configuration.");}
     }
-    @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==70&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startBridge();else if(r==70)alert("Permission needed","Termux requires RUN_COMMAND permission for the bridge installer. Enable it in Android app settings.");}
+    @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==70&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startBridge();else if(r==71&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)installNetHunter();else if(r==70||r==71)alert("Permission needed","Termux requires RUN_COMMAND permission for the bridge installer. Enable it in Android app settings.");}
     private void openTermux(){Intent i=getPackageManager().getLaunchIntentForPackage("com.termux");if(i!=null)startActivity(i);else toast("Install Termux first");}
     private void openViewer(){startActivity(new Intent(this, DesktopActivity.class));}
     private void url(String value){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(value)));}catch(Exception e){toast("No browser available");}}
