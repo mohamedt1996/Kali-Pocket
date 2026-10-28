@@ -1,94 +1,41 @@
-# Kali Pocket
+# Kali Pocket — independent ARM64 test build
 
-An Android companion for **Kali NetHunter Rootless**, with KeX graphical desktop controls and a local/LAN API for connecting an LLM. Native Java Android UI; Python standard-library bridge runs inside Termux. No root required.
+A standalone Android application with an embedded upstream PRoot runtime, its own touchscreen RFB viewer, and automatic setup of the official full Kali NetHunter ARM64 root filesystem. No separate Termux, Tiny Container, VNC viewer, or rooted Android device is required. This branch replaces the earlier companion and Tiny Container prototypes.
 
-This is a working prototype, not a standalone bundled Kali distribution. It requires Termux, a NetHunter Rootless installation, and a VNC/KeX viewer. The app guides you through these prerequisites. It does not emulate a separate Linux kernel or include Kali packages in the APK.
+## Install and run
 
-## Install on your phone
+Download the `kali-pocket-native-pad7` ZIP from the latest successful **Native Android APK** GitHub Actions run, extract it, and install the APK. This is a debug-signed test build. If Android rejects an update from an older prototype with a different signing key, uninstall that prototype first (this deletes its app data).
 
-1. Install the debug APK from `dist/`, or build it below. Requires Android 8 or newer.
-2. Install [Termux from F-Droid](https://f-droid.org/packages/com.termux/) or official Termux GitHub releases. Follow the [official NetHunter Rootless installation guide](https://www.kali.org/docs/nethunter/nethunter-rootless/). An ARM64 phone with several GB of free storage is recommended; distribution support depends on the device.
-3. In Termux, run `nh` to confirm Kali works. Exit back to Termux, then run `nh kex passwd` to set the desktop password.
-4. Enable the Termux integration:
+Requires ARM64 Android 8 or newer, Internet access for setup, and at least **16 GiB free storage**. First launch downloads approximately **1.8 GB** and extracts the full Kali filesystem. Allow notifications and keep the app open during setup. Setup verifies SHA-256 before extraction; an interrupted extraction can reuse a complete verified download. An interrupted download starts again. Later launches reuse the installed filesystem and automatically start/open the desktop.
 
-   ```sh
-   mkdir -p ~/.termux
-   echo 'allow-external-apps=true' >> ~/.termux/termux.properties
-   termux-reload-settings
-   ```
+The Xiaomi Pad 7 profile uses a 1800×1200 desktop, 144 DPI, aspect-preserving scaling, and a 30 fps update cap. Touch supports click/drag; toolbar controls provide right click, scrolling, keyboard, Ctrl, Tab and Escape. Physical keyboard input is supported. This is a software-rendered desktop: GPU acceleration and device-specific performance have not been verified.
 
-5. Open **Kali Pocket → Setup**. Enter your LLM base URL and model, save, then tap **Install / restart bridge**. Grant the Termux run-command permission when prompted. This installs Python through Termux's package manager, writes the bundled bridge and a private configuration under `~/.kali-pocket`, and runs the bridge in a visible Termux terminal. Review that terminal if anything fails.
-6. Return to Kali Pocket and tap **Check connection**. In **Desktop**, tap **Start desktop**. Install NetHunter KeX or a compatible VNC viewer and connect to `127.0.0.1:5901` with your KeX password. The Open VNC viewer button works with clients that support `vnc://` links; otherwise enter the address manually.
+**Validation:** APK compilation, JVM installer tests, Android lint, and extraction of the actual full Kali image passed on the build host. Android/HyperOS runtime boot, touchscreen behavior, and suspend/resume still require testing on a physical device. Open **Guest Tools → logs** if startup fails.
 
-Keep Termux running. Android battery restrictions and process limits can terminate Kali or the bridge. Exempt Termux from battery optimization when needed. Restart the bridge after saving settings or rotating the token. Session controls target the default non-root NetHunter KeX session on display `:1`; existing custom KeX configurations may need adjustment.
+## LAN and LLM
 
-## Connect an LLM on the same Wi-Fi
+Under Guest Tools configure an OpenAI-compatible endpoint, for example `http://192.168.1.20:11434/v1`, model, and optional API key. Stop and restart the desktop to apply settings. The built-in chat uses that server. Enable LAN access to reach the authenticated bridge at `http://TABLET_IP:8765`. Copy its bearer token from Guest Tools.
 
-For an Ollama server on a Linux workstation, make it listen on the LAN and pull a model:
+- `GET /v1/status` returns desktop status.
+- `POST /v1/chat` accepts `{"messages":[{"role":"user","content":"Hello"}]}`.
+- Send `Authorization: Bearer YOUR_TOKEN` for both routes.
 
-```sh
-# For a manually launched Ollama instance; stop an existing service first if it uses this port.
-OLLAMA_HOST=0.0.0.0:11434 ollama serve
-# In a second terminal:
-ollama pull llama3.2
-```
-
-If using a managed Ollama service, configure `OLLAMA_HOST` in the service instead. Allow the phone through your workstation firewall on TCP 11434. In Kali Pocket set the base URL to `http://YOUR_WORKSTATION_IP:11434/v1` and model to `llama3.2`, save and restart the bridge. For another OpenAI-compatible server, use its `/v1` base URL, model identifier and optional API key.
-
-The phone calls the Python bridge, which forwards chat to `/chat/completions` on your chosen server. Chat is text only and does **not execute model output**. Conversation history stays in app memory and is lost on process termination. The selected server receives your messages and may apply its own retention policy.
-
-## Reach the phone from another device
-
-Turn on **Allow bridge access from my LAN**, save and restart. This changes the bridge bind address from `127.0.0.1` to `0.0.0.0`. Find your phone's Wi-Fi IP in Android's network settings, and use **Copy LAN curl example** to obtain the token header. Protect that token as a password.
-
-```sh
-export POCKET_URL=http://PHONE_WIFI_IP:8765
-# Set POCKET_TOKEN to the private token copied from Setup.
-curl -H "Authorization: Bearer $POCKET_TOKEN" "$POCKET_URL/v1/status"
-
-curl -X POST -H "Authorization: Bearer $POCKET_TOKEN" \
-  -H 'Content-Type: application/json' -d '{}' "$POCKET_URL/v1/session/start"
-
-curl -X POST -H "Authorization: Bearer $POCKET_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"messages":[{"role":"user","content":"Explain the Linux filesystem"}]}' \
-  "$POCKET_URL/v1/chat"
-```
-
-| Route | Method | Behavior |
-| --- | --- | --- |
-| `/v1/status` | GET | NetHunter presence, KeX/VNC availability, last session error and LLM configuration without secrets |
-| `/v1/session/start` | POST | Start KeX asynchronously; send `{}` |
-| `/v1/session/stop` | POST | Stop KeX asynchronously; send `{}` |
-| `/v1/chat` | POST | Forward `messages` to the configured LLM; returns `reply` |
-
-Every route requires `Authorization: Bearer TOKEN`. Successful desktop actions return HTTP 202; poll status to observe the result. Missing/incorrect credentials return 401. There is no arbitrary command-execution API. KeX desktop access uses a separate VNC password and remains localhost-only by default. For desktop access from another device, use an SSH/VPN tunnel to port 5901; the app does not open VNC to the LAN.
-
-LAN mode uses HTTP. Use trusted Wi-Fi or a VPN; put an HTTPS reverse proxy in front of the API if transport encryption is required. Do not port-forward this prototype onto the public internet. Wi-Fi client isolation can prevent devices reaching each other. Some Android versions require additional local-network permission as their platform rules evolve.
+LAN access is off by default. HTTP should only be used on trusted Wi-Fi or through a VPN. The bridge does not execute arbitrary shell commands. VNC stays bound to localhost with a random private password.
 
 ## Build
 
-Requires JDK 17+, Android SDK platform 35 and Gradle 8.9 (wrapper included):
+JDK 17, Android SDK platform 35 and Gradle wrapper 8.9:
 
-```sh
-export ANDROID_HOME=/path/to/android-sdk
-./gradlew assembleDebug
+```
+./gradlew assembleDebug testDebugUnitTest lintDebug
 ```
 
-Output: `app/build/outputs/apk/debug/app-debug.apk`. This is a debug-signed prototype; configure your own release signing before distribution. No native libraries are bundled, so the APK itself is architecture-independent. NetHunter's rootfs architecture must match your phone.
+The output is `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions builds and packages the APK without downloading the 1.8 GB filesystem on the runner. `scripts/fetch-runtime.py` retrieves and verifies the pinned upstream PRoot/talloc/shmem binaries already included in `jniLibs` (Python 3 and dpkg-deb required).
 
-Run bridge integration tests (Python 3.9+):
+The image URL and checksum are pinned in `RootfsInstaller.java`. Kali's `current` URL is mutable: if upstream replaces it, setup deliberately rejects the changed image until the URL/hash are reviewed and updated. Extraction is staged before promotion; archive traversal and symlink-parent escapes are rejected.
 
-```sh
-python3 -m unittest discover -s tests -v
-```
+PRoot supplies userspace root emulation, not Android kernel privileges. Kernel-dependent features such as Wi-Fi monitor mode and kernel modules are unavailable through this runtime. Android may terminate background processes; reopen the app to restart. Data remains in app-private storage until uninstall or clear-data.
 
-The tests use temporary localhost HTTP servers, a mock OpenAI-compatible LLM and mocked NetHunter processes. They cover authentication, request limits, message validation, fixed desktop commands and proxying. They do not establish that Kali/KeX works on a particular Android device.
+## Sources and licenses
 
-`bridge/bridge.py` is the source; keep `app/src/main/assets/bridge.py` synchronized after editing. Android has no third-party runtime dependencies; the bridge uses Python's standard library. The app disables Android backups for its settings; API keys are stored in app-private preferences and the Termux-private config (mode restricted by `umask 077`). Root or device compromise can read these settings.
-
-## Limits
-
-Rootless Kali shares Android's kernel. Wi-Fi monitor mode, packet injection, kernel modules, USB gadget features and unrestricted hardware access require device-specific root/kernel support. This app does not implement those features. The bridge is a foreground Termux process, not an Android boot service. It must be restarted after reboot or process termination. It does not install Kali automatically or render VNC itself.
-
-Kali Pocket is independent of Kali Linux, Offensive Security and Termux.
+Original app code is GPL-3.0-or-later. See `LICENSE` and `third_party/NOTICE.md` for upstream runtime sources and dependency licenses. Kali packages retain their respective licenses. This is an independent project, not an official Kali or Xiaomi product.

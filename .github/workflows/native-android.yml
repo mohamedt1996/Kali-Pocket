@@ -1,0 +1,54 @@
+name: Native Android APK
+on:
+  push:
+    branches: ['native/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install isolated SDK 35
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;34.0.0'
+          SDK35="$RUNNER_TEMP/sdk35"
+          mkdir -p "$SDK35/platforms" "$SDK35/build-tools"
+          ln -s "$ANDROID_HOME/platforms/android-35" "$SDK35/platforms/android-35"
+          ln -s "$ANDROID_HOME/build-tools/34.0.0" "$SDK35/build-tools/34.0.0"
+          ln -s "$ANDROID_HOME/platform-tools" "$SDK35/platform-tools"
+          ln -s "$ANDROID_HOME/licenses" "$SDK35/licenses"
+          echo "ANDROID_HOME=$SDK35" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK35" >> "$GITHUB_ENV"
+      - name: Build and check
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+          bash -n app/src/main/assets/start-desktop.sh
+          python3 -m py_compile app/src/main/assets/bridge.py
+      - name: Package test build
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/kali-pocket-native-pad7-test.apk
+          cp README.md dist/README.md
+          cd dist
+          sha256sum kali-pocket-native-pad7-test.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kali-pocket-native-pad7
+          path: dist/
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-check-reports
+          path: app/build/reports/

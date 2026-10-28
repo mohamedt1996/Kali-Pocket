@@ -43,33 +43,11 @@ class Controller:
         self.session_state, self.last_error = 'idle', None
 
     def status(self):
-        return {'name': 'Kali Pocket', 'version': '0.1.0',
-                'nethunter_installed': shutil.which('nh') is not None,
+        return {'name': 'Kali Pocket', 'version': '0.2.0',
+                'kali_installed': os.path.exists('/opt/kali-pocket/start-desktop.sh'),
                 'desktop_running': desktop_running(), 'session_action': self.session_state,
                 'last_error': self.last_error, 'vnc_address': '127.0.0.1:5901',
                 'lan_enabled': self.lan, 'llm_url': self.llm_url, 'model': self.model}
-
-    def session(self, action):
-        if not shutil.which('nh'):
-            raise ValueError('Install NetHunter Rootless first; see Setup')
-        if not self.lock.acquire(blocking=False):
-            raise BlockingIOError('Another desktop action is in progress')
-        self.session_state, self.last_error = action, None
-        def work():
-            try:
-                # No shell, no user-supplied commands. KeX password is set in Termux.
-                command = ['nh', 'kex', 'start' if action == 'start' else 'stop']
-                result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                        stderr=subprocess.STDOUT, text=True, timeout=60)
-                if result.returncode:
-                    self.last_error = 'KeX command failed. Run nh kex passwd, then nh kex in Termux to diagnose.'
-            except (OSError, subprocess.TimeoutExpired):
-                self.last_error = 'KeX command could not finish. Check the Termux session.'
-            finally:
-                self.session_state = 'idle'
-                self.lock.release()
-        threading.Thread(target=work, daemon=True).start()
-        return {'accepted': action}
 
     def chat(self, body):
         messages = body.get('messages')
@@ -150,7 +128,7 @@ def handler_for(controller):
                 if not isinstance(body, dict):
                     raise ValueError('JSON object required')
                 if self.path in ('/v1/session/start', '/v1/session/stop'):
-                    self.send_json(202, controller.session(self.path.rsplit('/', 1)[1]))
+                    self.send_json(409, {'error': 'Use Kali Pocket on the tablet to control this session'})
                 elif self.path == '/v1/chat':
                     self.send_json(200, controller.chat(body))
                 else:
