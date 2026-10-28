@@ -1,0 +1,38 @@
+code: kali
+name: Kali Pocket
+description: Kali Linux with an integrated XFCE desktop. First launch installs desktop packages and requires Internet access.
+preview: ""
+feature:
+  - type: avnc
+    name: Kali desktop
+    description: Integrated touchscreen desktop
+    command: "bash /opt/kali-pocket/start-desktop.sh"
+    link: "vnc://127.0.0.1:5906"
+    use_unix_socket: true
+    enabled: true
+    adapt_to_screen_size: true
+    scale_ratio: 0
+boot_command: >
+  $BIN_DIR/proot $EXTRA_ARGS -H --kill-on-exit --link2symlink --sysvipc
+  -L -0 --rootfs=$CONTAINER_DIR --cwd=/root
+  --bind=/dev --bind=/proc --bind=/sys
+  --bind=/dev/urandom:/dev/random
+  --bind=/proc/self/fd:/dev/fd
+  --bind=$CACHE_DIR/tmp:/tmp --bind=$CACHE_DIR/tmp:/dev/shm
+  /usr/bin/env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$EXTRA_PATH
+  LD_LIBRARY_PATH=$EXTRA_LD_LIBRARY_PATH LD_PRELOAD=$EXTRA_LD_PRELOAD
+  HOME=/root USER=root DISPLAY=:6 LANG=C.UTF-8 TERM=xterm-256color $EXTRA_ENV /bin/bash --noprofile --norc
+export_command: "echo 'Export is not configured for this test build'"
+shortcut:
+  - type: command
+    name: Guest Tools — retry desktop setup
+    command: "bash /opt/kali-pocket/start-desktop.sh"
+  - type: command
+    name: Guest Tools — installation log
+    command: "cat /var/log/kali-pocket-setup.log"
+  - type: command
+    name: Guest Tools — configure LAN and LLM
+    command: "python3 /opt/kali-pocket/configure-llm.py"
+  - type: command
+    name: Guest Tools — start LAN and LLM bridge
+    command: "python3 /opt/kali-pocket/llm-bridge.py --config /root/.config/kali-pocket.json &"

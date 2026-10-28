@@ -1,94 +1,88 @@
-# Kali Pocket
+[中文版](README.zh.md)
 
-An Android companion for **Kali NetHunter Rootless**, with KeX graphical desktop controls and a local/LAN API for connecting an LLM. Native Java Android UI; Python standard-library bridge runs inside Termux. No root required.
+# Tiny Container
 
-This is a working prototype, not a standalone bundled Kali distribution. It requires Termux, a NetHunter Rootless installation, and a VNC/KeX viewer. The app guides you through these prerequisites. It does not emulate a separate Linux kernel or include Kali packages in the APK.
+> [!NOTE]
+> Linux is powerful. Linux can also be easy to use.
 
-## Install on your phone
+### Install Tiny Container and instantly get a Linux computer* — run PC software right on your phone or tablet!
 
-1. Install the debug APK from `dist/`, or build it below. Requires Android 8 or newer.
-2. Install [Termux from F-Droid](https://f-droid.org/packages/com.termux/) or official Termux GitHub releases. Follow the [official NetHunter Rootless installation guide](https://www.kali.org/docs/nethunter/nethunter-rootless/). An ARM64 phone with several GB of free storage is recommended; distribution support depends on the device.
-3. In Termux, run `nh` to confirm Kali works. Exit back to Termux, then run `nh kex passwd` to set the desktop password.
-4. Enable the Termux integration:
+![Preview image](doc/tc4.png)
 
-   ```sh
-   mkdir -p ~/.termux
-   echo 'allow-external-apps=true' >> ~/.termux/termux.properties
-   termux-reload-settings
-   ```
+## Features
 
-5. Open **Kali Pocket → Setup**. Enter your LLM base URL and model, save, then tap **Install / restart bridge**. Grant the Termux run-command permission when prompted. This installs Python through Termux's package manager, writes the bundled bridge and a private configuration under `~/.kali-pocket`, and runs the bridge in a visible Termux terminal. Review that terminal if anything fails.
-6. Return to Kali Pocket and tap **Check connection**. In **Desktop**, tap **Start desktop**. Install NetHunter KeX or a compatible VNC viewer and connect to `127.0.0.1:5901` with your KeX password. The Open VNC viewer button works with clients that support `vnc://` links; otherwise enter the address manually.
+### Designed for ordinary users. You don't need to know Linux...
 
-Keep Termux running. Android battery restrictions and process limits can terminate Kali or the bridge. Exempt Termux from battery optimization when needed. Restart the bridge after saving settings or rotating the token. Session controls target the default non-root NetHunter KeX session on display `:1`; existing custom KeX configurations may need adjustment.
+1. Install the app and open it — no manual steps required*. After a 5-minute initialization, you'll be at the desktop.
+2. Installation commands for common software are already prepared for you. Just tap, and the app handles the rest.
+3. The UI is designed to be as friendly as possible, not just "good enough to have a UI". AI-powered translations are available in many languages. Even RTL layout is supported!
+    - (Admittedly, I don't use RTL myself and can't verify the AI translations, so no guarantees on accuracy! But better to have it than not, right?)
 
-## Connect an LLM on the same Wi-Fi
+### Also a toy for geeks — built-in terminal, rich container configuration options!
 
-For an Ollama server on a Linux workstation, make it listen on the LAN and pull a model:
+4. Containers and configurations can be freely shared!
+5. Cutting-edge features from the Termux community are ready to go! No need to learn how to install containers, start graphical sessions, configure audio, and all that tedious stuff. The following features work out of the box:
+    - Import containers via the import button, with graphical session startup included (if supported);
+    - Built-in AVNC and Termux:X11 frontends — no extra app installation needed;
+    - Audio and microphone forwarding;
+    - virglrenderer and turnip+zink graphics acceleration...
+6. Features only possible in a single app!
+    - Audio and VNC transmitted over unix sockets, bypassing the network stack;
+    - Browse container files via the SAF file manager;
+    - Add .desktop files or even arbitrary commands as shortcuts to your Android launcher!
+7. Won't conflict with Termux!
 
-```sh
-# For a manually launched Ollama instance; stop an existing service first if it uses this port.
-OLLAMA_HOST=0.0.0.0:11434 ollama serve
-# In a second terminal:
-ollama pull llama3.2
-```
+The goal of this project is to let ordinary users enjoy Linux as effortlessly as possible.  
+Termux is widely known as a treasure trove for developers, massively expanding what your device can do.  
+Yet few people outside the developer community realize the potential sitting in their devices, so I hope this project lowers the barrier to entry.  
 
-If using a managed Ollama service, configure `OLLAMA_HOST` in the service instead. Allow the phone through your workstation firewall on TCP 11434. In Kali Pocket set the base URL to `http://YOUR_WORKSTATION_IP:11434/v1` and model to `llama3.2`, save and restart the bridge. For another OpenAI-compatible server, use its `/v1` base URL, model identifier and optional API key.
+> [!CAUTION]  
+> This project makes heavy use of AI. Given the level of completion, it's kind of unavoidable... isn't it? ^_^  
+> This includes code logic, layouts, translations, and more. There may be unexpected bugs in some places. Please be aware.
 
-The phone calls the Python bridge, which forwards chat to `/chat/completions` on your chosen server. Chat is text only and does **not execute model output**. Conversation history stays in app memory and is lost on process termination. The selected server receives your messages and may apply its own retention policy.
+What I won't do: 
+- Support chroot containers. For the first three years of this project, people occasionally asked me to support it, usually citing "better performance".  
+  While that's true in theory, no one has ever provided actual benchmark data showing under what scenarios proot's slowness becomes a performance bottleneck. Since I have no experience developing apps that use root (and managing root seems like a huge hassle), I won't be supporting chroot.  
+  In short, if you really need it, use Termux! If you need automated setup, try Kali Nethunter or similar.
+- Support Mali GPU acceleration; Wayland; Docker, systemd; GNOME; some specific distro; camera, serial port, etc... (^-^*)  
+  No wish-listing please! If the community comes up with solutions, I may add them in.  
+  As for other distros, you can actually check out the [images repo](https://github.com/tiny-computer/images) and give it a try yourself.
 
-## Reach the phone from another device
+## Download
 
-Turn on **Allow bridge access from my LAN**, save and restart. This changes the bridge bind address from `127.0.0.1` to `0.0.0.0`. Find your phone's Wi-Fi IP in Android's network settings, and use **Copy LAN curl example** to obtain the token header. Protect that token as a password.
-
-```sh
-export POCKET_URL=http://PHONE_WIFI_IP:8765
-# Set POCKET_TOKEN to the private token copied from Setup.
-curl -H "Authorization: Bearer $POCKET_TOKEN" "$POCKET_URL/v1/status"
-
-curl -X POST -H "Authorization: Bearer $POCKET_TOKEN" \
-  -H 'Content-Type: application/json' -d '{}' "$POCKET_URL/v1/session/start"
-
-curl -X POST -H "Authorization: Bearer $POCKET_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"messages":[{"role":"user","content":"Explain the Linux filesystem"}]}' \
-  "$POCKET_URL/v1/chat"
-```
-
-| Route | Method | Behavior |
-| --- | --- | --- |
-| `/v1/status` | GET | NetHunter presence, KeX/VNC availability, last session error and LLM configuration without secrets |
-| `/v1/session/start` | POST | Start KeX asynchronously; send `{}` |
-| `/v1/session/stop` | POST | Stop KeX asynchronously; send `{}` |
-| `/v1/chat` | POST | Forward `messages` to the configured LLM; returns `reply` |
-
-Every route requires `Authorization: Bearer TOKEN`. Successful desktop actions return HTTP 202; poll status to observe the result. Missing/incorrect credentials return 401. There is no arbitrary command-execution API. KeX desktop access uses a separate VNC password and remains localhost-only by default. For desktop access from another device, use an SSH/VPN tunnel to port 5901; the app does not open VNC to the LAN.
-
-LAN mode uses HTTP. Use trusted Wi-Fi or a VPN; put an HTTPS reverse proxy in front of the API if transport encryption is required. Do not port-forward this prototype onto the public internet. Wi-Fi client isolation can prevent devices reaching each other. Some Android versions require additional local-network permission as their platform rules evolve.
+APKs are available on the [releases](https://github.com/Cateners/tiny_container/releases) page.
 
 ## Build
 
-Requires JDK 17+, Android SDK platform 35 and Gradle 8.9 (wrapper included):
+After cloning the repository, download the prebuilt library jniLibs.zip from the releases page and extract it to app/src/main/jniLibs/arm64-v8a. Then you can open and build the project normally in Android Studio.  
+For automatic container installation on first launch, rename your container to rootfs.tar.zst and place it in app/src/main/assets.  
+For container information, including how to make your own containers and some pre-built containers I've already prepared, check out [this](https://github.com/tiny-computer/images) repository.
 
-```sh
-export ANDROID_HOME=/path/to/android-sdk
-./gradlew assembleDebug
-```
+The jniLibs.zip prebuilt libraries come from my fork of [termux-packages](https://github.com/tiny-computer/termux-packages).  
+My main modifications there are:
+- scripts/generate-bootstraps.sh, to directly generate the required packages. I manually renamed the needed files to .so and packaged them. You should be able to easily see which .so files correspond to which files in the bootstraps.
+- packages/proot/build.sh, to use my fork of [proot](https://github.com/tiny-computer/proot-termux) (the changes there are a bit messy, nothing worth looking at).
 
-Output: `app/build/outputs/apk/debug/app-debug.apk`. This is a debug-signed prototype; configure your own release signing before distribution. No native libraries are bundled, so the APK itself is architecture-independent. NetHunter's rootfs architecture must match your phone.
+Other files may have minor modifications too, but those are usually just to get things compiling cleanly or to remove some Termux hard-coded paths.
 
-Run bridge integration tests (Python 3.9+):
+## Documentation?
 
-```sh
-python3 -m unittest discover -s tests -v
-```
+Not ready yet — please wait just a little bit longer...
 
-The tests use temporary localhost HTTP servers, a mock OpenAI-compatible LLM and mocked NetHunter processes. They cover authentication, request limits, message validation, fixed desktop commands and proxying. They do not establish that Kali/KeX works on a particular Android device.
+- If the screen appears too large or too small, adjust the display scaling in Features -> AVNC.
+- Android storage is mounted at /mnt/sdcard by default. Don't forget to grant storage access permission.
+- If a Linux app can't detect the microphone, check that the microphone is selected (Tiny Microphone Input), or try restarting that Linux app.
 
-`bridge/bridge.py` is the source; keep `app/src/main/assets/bridge.py` synchronized after editing. Android has no third-party runtime dependencies; the bridge uses Python's standard library. The app disables Android backups for its settings; API keys are stored in app-private preferences and the Termux-private config (mode restricted by `umask 077`). Root or device compromise can read these settings.
+## What about the old code?
 
-## Limits
+The Tiny Computer code is preserved on the v1_tiny_computer branch.
+Tiny Container is a complete rewrite of Tiny Computer, and I likely won't maintain Tiny Computer going forward. So, use Tiny Container!
 
-Rootless Kali shares Android's kernel. Wi-Fi monitor mode, packet injection, kernel modules, USB gadget features and unrestricted hardware access require device-specific root/kernel support. This app does not implement those features. The bridge is a foreground Termux process, not an Android boot service. It must be restarted after reboot or process termination. It does not install Kali automatically or render VNC itself.
-
-Kali Pocket is independent of Kali Linux, Offensive Security and Termux.
+## Acknowledgments
+Thanks to the [termux](https://github.com/termux) community for porting so many excellent programs to Android and providing countless solutions for container configuration scenarios.  
+Thanks to the [tmoe](https://github.com/2moe/tmoe) project for making container configuration easier. Although Tiny Container doesn't directly use tmoe this time, some scripts still bear its influence. tmoe was my introduction to Linux.  
+Thanks to the [avnc](https://github.com/gujjwal00/avnc) and [termux-x11](https://github.com/termux/termux-x11) projects — the Linux graphical interfaces used by Tiny Container.  
+Thanks to vinceliuice's [Fluent](https://github.com/vinceliuice/Fluent-gtk-theme) project — the default theme used by the Xfce container.  
+Thanks to lxgw's [Xiaolai Font](https://github.com/lxgw/kose-font) project — the default font used by containers.  
+Thanks to the [debian](https://www.debian.org/) project and all the open-source maintainers who form the foundation of the containers! All containers currently used in this project are based on Debian.  
+Thanks to all Tiny Computer (and Tiny Container) contributors, users, and everyone who believes in this project.
