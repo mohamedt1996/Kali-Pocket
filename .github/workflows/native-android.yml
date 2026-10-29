@@ -5,7 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -52,3 +52,11 @@ jobs:
         with:
           name: native-check-reports
           path: app/build/reports/
+      - name: Publish downloadable test ZIP
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          zip -q kali-pocket-native-pad7-test.zip kali-pocket-native-pad7-test.apk README.md SHA256SUMS.txt
+          gh release create native-pad7-test-1 kali-pocket-native-pad7-test.zip --target "$GITHUB_SHA" --title "Independent ARM64 Pad 7 test" --notes "Device-test build. First launch downloads the official full Kali ARM64 image; requires at least 16 GiB free. Desktop boot and touchscreen behavior need physical device testing."
